@@ -1,0 +1,8 @@
+vars.sh
+.generated/
+.generated/*
+1_infra_digitalocean/.terraform/
+1_infra_digitalocean/.terraform/*
+1_infra_digitalocean/terraform.tfstate
+1_infra_digitalocean/terraform.tfstate*
+2_ansible_config/vars/main.yml

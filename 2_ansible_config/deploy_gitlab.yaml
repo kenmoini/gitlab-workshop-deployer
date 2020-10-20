@@ -1,0 +1,161 @@
+---
+  - name: Set up GitLab
+    hosts: gitlab
+    become: True
+    gather_facts: True
+  
+    tasks:
+  
+      - name: Include the base variables
+        include_vars: "vars/main.yml"
+        tags:
+          - always
+          - setupRepos
+  
+      - name: Wait for SSH to come up
+        wait_for_connection:
+          delay: 10
+          timeout: 360
+  
+      - name: Connect to new instance and set hostname
+        hostname:
+          name: "{{ gitlab_server_fqdn }}"
+  
+      - name: Set /etc/hosts file
+        copy:
+          dest: "/etc/hosts"
+          content: |
+            127.0.0.1 localhost localdomain
+            {{ hostvars[inventory_hostname].ansible_internal_private_ip }} {{ gitlab_server_fqdn }} {{ domain }}
+  
+      - name: Update base packages
+        yum:
+          name: "*"
+          state: latest
+          update_cache: yes
+        register: update_task_result
+        
+      - name: Reboot immediately if there were new packages installed
+        shell: "sleep 5 && reboot"
+        async: 1
+        poll: 0
+        when: update_task_result is changed
+  
+      - name: Wait for the reboot to complete if there were new packages installed
+        wait_for_connection:
+          connect_timeout: 20
+          sleep: 5
+          delay: 5
+          timeout: 300
+        when: update_task_result is changed
+
+      - name: Install GitLab server packages
+        yum:
+          name: "{{ gitlab_server_pkgs }}"
+          state: present
+        delay: 10
+        register: result
+        retries: 3
+        until: result is succeeded
+    
+      - name: Start firewalld
+        service:
+          name: firewalld
+          state: started
+          enabled: true
+    
+      - name: Set firewall
+        firewalld:
+          permanent: yes
+          immediate: yes
+          state: enabled
+          service: "{{ item }}"
+        with_items:
+          - https
+          - http
+          - ssh
+    
+      - name: Set firewall for port 5000
+        firewalld:
+          permanent: yes
+          immediate: yes
+          state: enabled
+          port: 5000/tcp
+    
+      - name: Set firewall for port 5001
+        firewalld:
+          permanent: yes
+          immediate: yes
+          state: enabled
+          port: 5001/tcp
+    
+      - name: Set firewall for port 5005
+        firewalld:
+          permanent: yes
+          immediate: yes
+          state: enabled
+          port: 5005/tcp
+
+      - name: Check if GitLab configuration file already exists.
+        stat: path=/etc/gitlab/gitlab.rb
+        register: gitlab_config_file
+    
+      - name: Check if GitLab is already installed.
+        stat: path=/usr/bin/gitlab-ctl
+        register: gitlab_file
+    
+      - name: Download GitLab repository installation script.
+        get_url:
+          url: "{{ gitlab_repository_installation_script_url }}"
+          dest: /tmp/gitlab_install_repository.sh
+          validate_certs: "{{ gitlab_download_validate_certs }}"
+        when: not gitlab_file.stat.exists
+    
+      - name: Install GitLab repository.
+        command: bash /tmp/gitlab_install_repository.sh
+        when: not gitlab_file.stat.exists
+
+      - name: Define the Gitlab package name.
+        set_fact:
+          gitlab_package_name: "{{ gitlab_edition }}{{ gitlab_package_version_separator }}{{ gitlab_version }}"
+        when: gitlab_version != ''
+
+      - name: Create GitLab Config directory
+        file:
+          path: /etc/gitlab
+          state: directory
+        when: not gitlab_config_file.stat.exists
+
+      - name: Copy GitLab configuration file.
+        template:
+          src: "{{ gitlab_config_template }}"
+          dest: /etc/gitlab/gitlab.rb
+          owner: root
+          group: root
+          mode: 0600
+        notify: restart gitlab
+        when: not gitlab_config_file.stat.exists
+    
+      - name: Install GitLab
+        package:
+          name: "{{ gitlab_package_name | default(gitlab_edition) }}"
+          state: present
+        when: not gitlab_file.stat.exists
+        environment:
+          EXTERNAL_URL: "{{ gitlab_generated_hostname }}"
+    
+      - name: Copy over the repos into each user
+        shell: 'gitlab-rake "import:github[{{ gitlab_preprovision_repo_github_access_token }},{{ gitlab_preprovision_users_prefix }}{{ item }}{{ gitlab_preprovision_users_suffix }},{{ gitlab_preprovision_users_prefix }}{{ item }}{{ gitlab_preprovision_users_suffix }}/{{ gitlab_preprovision_repo_github_repo_repo }},{{ gitlab_preprovision_repo_github_repo_user }}/{{ gitlab_preprovision_repo_github_repo_repo }}]" RAILS_ENV=production'
+        with_sequence: start={{ gitlab_preprovision_users_start }} count={{ gitlab_preprovision_users_count }}
+        when: gitlab_preprovision_repos
+        tags:
+        - setupRepos
+    
+      - name: Force reconfig of gitlab
+        meta: flush_handlers    
+
+    handlers:
+      - name: restart gitlab
+        command: gitlab-ctl reconfigure
+        register: gitlab_restart
+        failed_when: false
