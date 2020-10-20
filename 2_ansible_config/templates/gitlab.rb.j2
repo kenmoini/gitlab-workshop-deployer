@@ -394,7 +394,7 @@ gitlab_rails['object_store']['objects']['terraform_state']['bucket'] = nil
 ###!   in yaml format and the spaces must be retained. Using tabs will not work.**
 
 gitlab_rails['ldap_enabled'] = {{ gitlab_integrate_idm|lower }}
-# gitlab_rails['prevent_ldap_sign_in'] = false
+gitlab_rails['prevent_ldap_sign_in'] = false
 
 ###! **remember to close this block with 'EOS' below**
 gitlab_rails['ldap_servers'] = YAML.load <<-'EOS'
@@ -413,7 +413,7 @@ gitlab_rails['ldap_servers'] = YAML.load <<-'EOS'
     lowercase_usernames: false
     block_auto_created_users: false
     base: '{{ gitlab_ldap_user_base }}'
-    user_filter: ''
+    user_filter: '{{ gitlab_ldap_user_filter }}'
     attributes:
       username: ['uid']
       email: ['mail']
