@@ -1,8 +1,8 @@
 ## GitLab on Whatever with Terraform and Ansible
 
-This collection of content will utilize Terraform to provision the infrastructure needed to deploy a single GitLab Server for workshops.  Currently it supports deploying to DigitalOcean, but other cloud providers are easy to adapt to by just creating a new set of Terraform files.
+This collection of content will utilize Terraform to provision the infrastructure needed to deploy a single GitLab Server for workshops.  Currently it supports deploying to AWS or DigitalOcean, but other cloud providers are easy to adapt to by just creating a new set of Terraform files.
 
-Tested on CentOS 8.2 with GitLab CE 13.4.4.
+Tested on CentOS/RHEL 8.3 with GitLab CE 13.11.3.
 
 ## Deploying
 
