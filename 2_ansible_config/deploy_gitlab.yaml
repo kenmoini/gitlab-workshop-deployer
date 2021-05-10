@@ -65,7 +65,7 @@
           enabled: true
     
       - name: Set firewall
-        firewalld:
+        ansible.posix.firewalld:
           permanent: yes
           immediate: yes
           state: enabled
@@ -76,21 +76,21 @@
           - ssh
     
       - name: Set firewall for port 5000
-        firewalld:
+        ansible.posix.firewalld:
           permanent: yes
           immediate: yes
           state: enabled
           port: 5000/tcp
     
       - name: Set firewall for port 5001
-        firewalld:
+        ansible.posix.firewalld:
           permanent: yes
           immediate: yes
           state: enabled
           port: 5001/tcp
     
       - name: Set firewall for port 5005
-        firewalld:
+        ansible.posix.firewalld:
           permanent: yes
           immediate: yes
           state: enabled
@@ -134,7 +134,7 @@
           group: root
           mode: 0600
         notify: restart gitlab
-        when: not gitlab_config_file.stat.exists
+        #when: not gitlab_config_file.stat.exists
     
       - name: Install GitLab
         package:

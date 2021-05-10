@@ -11,7 +11,7 @@ gitlab_enable_letsencrypt: true
 certbot_email: you@example.com
 
 gitlab_integrate_idm: false
-gitlab_ldap_domain: idm.example.com
+gitlab_ldap_domain: "idm.{{ domain }}"
 gitlab_ldap_port: 389
 gitlab_ldap_realm: example.com
 freeipa_base_dn: "DC={{ gitlab_ldap_realm.split('.') | join(',DC=') }}"
