@@ -19,7 +19,7 @@ variable "do_datacenter" {
   type    = string
   default = "nyc3"
 }
-variable "gitlabHostname" {
+variable "gitlab_hostname" {
   type    = string
   default = "gitlab"
 }
@@ -48,16 +48,16 @@ resource "tls_private_key" "cluster_new_key" {
 
 resource "local_file" "cluster_new_priv_file" {
   content         = tls_private_key.cluster_new_key.private_key_pem
-  filename        = "../.generated/.${var.gitlabHostname}.${var.domain}/priv.pem"
+  filename        = "../.generated/.${var.gitlab_hostname}.${var.domain}/priv.pem"
   file_permission = "0600"
 }
 resource "local_file" "cluster_new_pub_file" {
   content  = tls_private_key.cluster_new_key.public_key_openssh
-  filename = "../.generated/.${var.gitlabHostname}.${var.domain}/pub.key"
+  filename = "../.generated/.${var.gitlab_hostname}.${var.domain}/pub.key"
 }
 
 resource "digitalocean_ssh_key" "cluster_ssh_key" {
-  name       = "${var.gitlabHostname}SSHKey"
+  name       = "${var.gitlab_hostname}SSHKey"
   public_key = tls_private_key.cluster_new_key.public_key_openssh
 }
 
@@ -69,38 +69,38 @@ data "template_file" "ansible_inventory" {
   template = file("./inventory.tpl")
   vars = {
     gitlab_node = join("\n", formatlist("%s ansible_do_host=%s ansible_internal_private_ip=%s", digitalocean_droplet.gitlab_node.ipv4_address, digitalocean_droplet.gitlab_node.name, digitalocean_droplet.gitlab_node.ipv4_address_private))
-    ssh_private_file = "../.generated/.${var.gitlabHostname}.${var.domain}/priv.pem"
+    ssh_private_file = "../.generated/.${var.gitlab_hostname}.${var.domain}/priv.pem"
   }
   depends_on = [digitalocean_droplet.gitlab_node]
 }
 
 resource "local_file" "ansible_inventory" {
   content  = data.template_file.ansible_inventory.rendered
-  filename = "../.generated/.${var.gitlabHostname}.${var.domain}/inventory"
+  filename = "../.generated/.${var.gitlab_hostname}.${var.domain}/inventory"
 }
 
 resource "digitalocean_vpc" "gitlabVPC" {
-  name     = "${var.gitlabHostname}-priv-net"
+  name     = "${var.gitlab_hostname}-priv-net"
   region   = var.do_datacenter
   ip_range = var.do_vpc_cidr
 }
 
 resource "digitalocean_droplet" "gitlab_node" {
   image              = var.droplet_image
-  name               = "${var.gitlabHostname}.${var.domain}"
+  name               = "${var.gitlab_hostname}.${var.domain}"
   region             = var.do_datacenter
   size               = var.droplet_size
   private_networking = true
   vpc_uuid           = digitalocean_vpc.gitlabVPC.id
   ssh_keys           = [local.ssh_fingerprint]
   depends_on         = [digitalocean_ssh_key.cluster_ssh_key, digitalocean_vpc.gitlabVPC]
-  tags               = [var.gitlabHostname]
+  tags               = [var.gitlab_hostname]
 }
 
-resource "digitalocean_record" "gitlabHostname" {
+resource "digitalocean_record" "gitlab_hostname" {
   domain      = var.domain
   type        = "A"
-  name        = var.gitlabHostname
+  name        = var.gitlab_hostname
   value       = digitalocean_droplet.gitlab_node.ipv4_address
   ttl         = "6400"
   depends_on  = [digitalocean_droplet.gitlab_node]
